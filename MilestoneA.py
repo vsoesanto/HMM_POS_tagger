@@ -93,7 +93,7 @@ reference1 = '''Jurafsky, Daniel, and James H. Martin. 2009. Speech and Language
     An Introduction to Natural Language Processing, Speech Recognition, and Computational Linguistics. 2nd edition. 
     Prentice-Hall.'''
 
-reference2 = '''"Wikipedia'''
+reference2 = '''"test'''
 
 our_submission = Who_and_what([denise, vincent], OPTION, title, approach, workload_distribution, [reference1, reference2])
 
