@@ -17,7 +17,7 @@ cat training_data | create_3gram_hmm.sh output_3gram_hmm l1 l2 l3 unk_prob_file
 ```
 
 - Sample ```training data``` provided in this repository is ```toy_input``` under ```examples/toy```. 
-- The smoothing technique used is linear interpolation, where ```l1```, ```l2```, ```l3``` are lambda values. 
+- The smoothing technique used is [linear interpolation](https://en.wikipedia.org/wiki/Linear_interpolation), where ```l1```, ```l2```, ```l3``` are lambda values. 
 - Probabilities in ```unk_prob_file``` are used to account for unknown words. Sample ```unk_prob_file``` provided in this repository is ```toy_unk``` under ```examples/toy```. 
 
 
