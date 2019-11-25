@@ -1,24 +1,25 @@
 '''
 create_2gram_hmm.py
 
+
 Vincent Soesanto
-LING570
+CSE 415
 Autumn 2019
-Homework 8
 
 This script generates an bigram model of a pos-enhanced input corpus 'training_data' using the ARPA format.
 
 Usage: cat training_data | create_2gram_hmm.sh output_hmm
 '''
 import sys
+import math
 
 # command line args
-input_file = sys.stdin
-output_file_name = sys.argv[1]
+# input_file = sys.stdin
+# output_file_name = sys.argv[1]
 
 # home development
-# input_file_name = "examples/toy/toy_input"
-# output_file_name = "toy_2gram_output_2"
+input_file_name = "examples/wsj_sec0.word_pos"
+output_file_name = "wsj_hmm_2g"
 
 # global variables
 transition_prob = {}  # state to state
@@ -35,9 +36,9 @@ def take_inventory(split_line):
             word = "</s>"
             tag = "EOS"
         else:
-            word = split_line[i].split("/")[0]
-            tag = split_line[i].split("/")[1]
-
+            pair = split_line[i].rsplit("/", maxsplit=1)
+            word = pair[0]
+            tag = pair[1]
         split_line[i] = (word, tag)  # modify split_line by replacing string with tuple
     # print(split_line)  # report modified split_line
 
@@ -81,16 +82,16 @@ def take_inventory(split_line):
 
 # DRIVER
 # input from stdin
-for line in input_file:
-    split_line = ["<s>/BOS"] + line.strip().split(" ") + ["</s>/EOS"]
-    take_inventory(split_line)
+# for line in input_file:
+#     split_line = ["<s>/BOS"] + line.strip().split(" ") + ["</s>/EOS"]
+#     take_inventory(split_line)
 
 # home development
-# with open(input_file_name, "r") as input_file:
-#     for line in input_file:
-#         split_line = ["<s>/BOS"] + line.strip("\n").split(" ") + ["</s>/EOS"]
-#         # print(split_line)
-#         take_inventory(split_line)
+with open(input_file_name, "r") as input_file:
+    for line in input_file:
+        split_line = ["<s>/BOS"] + line.strip("\n").split(" ") + ["</s>/EOS"]
+        # print(split_line)
+        take_inventory(split_line)
 
 # report
 with open(output_file_name, "w") as output_file:

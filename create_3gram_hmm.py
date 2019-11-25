@@ -1,10 +1,10 @@
 '''
-create_3gram_hmm_draft.py
+create_3gram_hmm.py
+
 
 Vincent Soesanto
-LING570
+CSE 415
 Autumn 2019
-Homework 8
 
 This script generates an trigram model of a pos-enhanced input corpus 'training_data' using the ARPA format.
 Interpolation is used as the smoothing technique for this model.
@@ -12,21 +12,25 @@ Interpolation is used as the smoothing technique for this model.
 Usage: cat training_data | create_3gram_hmm.sh output_hmm l1 l2 l3 unk_prob_file
 '''
 import sys
+import math
 
 # command line args
-input_file = sys.stdin
-output_file_name = sys.argv[1]
-l1 = float(sys.argv[2])
-l2 = float(sys.argv[3])
-l3 = float(sys.argv[4])
-unk_prob_file_name = sys.argv[5]
+# input_file = sys.stdin
+# output_file_name = sys.argv[1]
+# l1 = float(sys.argv[2])
+# l2 = float(sys.argv[3])
+# l3 = float(sys.argv[4])
+# unk_prob_file_name = sys.argv[5]
 
 # for home development
+input_file_name = "examples/wsj_sec0.word_pos"
 # input_file_name = "examples/toy/toy_input"
-# output_file_name = "toy_3gram_output"
-# l1 = 0.2
-# l2 = 0.3
-# l3 = 0.5
+output_file_name = "wsj_hmm_3g"
+# output_file_name = "toy_hmm_3g"
+l1 = 0.2
+l2 = 0.3
+l3 = 0.5
+unk_prob_file_name = "examples/unk_prob_sec22"
 # unk_prob_file_name = "examples/toy/toy_unk"
 
 # global variables
@@ -36,52 +40,54 @@ word_unigrams = {"<unk>": 0}
 tag_bigrams = {}
 tag_trigrams = {}
 tag_unigrams = {}
+tag_set = set()
 unk_prob = {}
 total_tag_types = 0
 
 # output
 possible_emissions = {}
-possibe_transitions = {}
+possible_transitions = {}
 
 
 def take_inventory():
     # running with command line
-    for line in input_file:
-        split_line = ["<s>/BOS"] + line.strip().split(" ") + ["</s>/EOS"]
-        for i in range(len(split_line)):
-            item = split_line[i]
-            # by default, item is split by "/" which will capture the "/" in the word "</s>"
-            if "</s>" in item:
-                word = "</s>"
-                tag = "EOS"
-            else:
-                word = split_line[i].split("/")[0]
-                tag = split_line[i].split("/")[1]
-
-            split_line[i] = (word, tag)  # modify split_line by replacing string with tuple
-
-        for i in range(len(split_line)):
-            count_transitions(split_line, i)
-            count_emissions(split_line, i)
-
-    # with open(input_file_name, "r") as input_file:
-    #     for line in input_file:
-    #         split_line = ["<s>/BOS"] + line.strip().split(" ") + ["</s>/EOS"]
-    #         for i in range(len(split_line)):
-    #             item = split_line[i]
-    #             # by default, item is split by "/" which will capture the "/" in the word "</s>"
-    #             if "</s>" in item:
-    #                 word = "</s>"
-    #                 tag = "EOS"
-    #             else:
-    #                 word = split_line[i].split("/")[0]
-    #                 tag = split_line[i].split("/")[1]
+    # for line in input_file:
+    #     split_line = ["<s>/BOS"] + line.strip().split(" ") + ["</s>/EOS"]
+    #     for i in range(len(split_line)):
+    #         item = split_line[i]
+    #         # by default, item is split by "/" which will capture the "/" in the word "</s>"
+    #         if "</s>" in item:
+    #             word = "</s>"
+    #             tag = "EOS"
+    #         else:
+    #             pair = split_line[i].rsplit("/", maxsplit=1)
+    #             word = pair[0]
+    #             tag = pair[1]
+    #         split_line[i] = (word, tag)  # modify split_line by replacing string with tuple
     #
-    #             split_line[i] = (word, tag)  # modify split_line by replacing string with tuple
-    #
-    #         for i in range(len(split_line)):
-    #             count_transitions(split_line, i)
-    #             count_emissions(split_line, i)
+    #     for i in range(len(split_line)):
+    #         count_transitions(split_line, i)
+    #         count_emissions(split_line, i)
+
+    # for home developmeent
+    with open(input_file_name, "r") as input_file:
+        for line in input_file:
+            split_line = ["<s>/BOS"] + line.strip().split(" ") + ["</s>/EOS"]
+            for i in range(len(split_line)):
+                item = split_line[i]
+                # by default, item is split by "/" which will capture the "/" in the word "</s>"
+                if "</s>" in item:
+                    word = "</s>"
+                    tag = "EOS"
+                else:
+                    pair = split_line[i].rsplit(r"/", maxsplit=1)
+                    word = pair[0]
+                    tag = pair[1]
+                split_line[i] = (word, tag)  # modify split_line by replacing string with tuple
+
+            for i in range(len(split_line)):
+                count_transitions(split_line, i)
+                count_emissions(split_line, i)
 
 
 def count_transitions(split_line, i):
@@ -111,12 +117,18 @@ def count_transitions(split_line, i):
     for j in range(3):
         if i + j < len(split_line):
             pos_pos_pos += split_line[i + j][1] + " "
+            if len(split_line[i + j][1]) > 6:
+                print("ERROR: found a word " + split_line[i + j][1] + " in state transition")
     pos_pos_pos = pos_pos_pos.strip()
     if len(pos_pos_pos.split(" ")) == 3:
         # make entry for transition_prob
         if pos_pos_pos not in tag_trigrams:
             tag_trigrams[pos_pos_pos] = 0
         tag_trigrams[pos_pos_pos] = tag_trigrams[pos_pos_pos] + 1
+
+    if word not in word_unigrams:
+        word_unigrams[word] = 0
+    word_unigrams[word] += 1
 
 
 def count_emissions(split_line, i):
@@ -133,7 +145,7 @@ def count_emissions(split_line, i):
 def generate_unk_prob():
     with open(unk_prob_file_name, "r") as unk_prob_file:
         for line in unk_prob_file:
-            split_line = line.strip().split("\t")
+            split_line = line.strip().split()
             pos = split_line[0]
             prob = float(split_line[1])
             unk_prob[pos] = prob
@@ -166,7 +178,6 @@ def interpolate(tag1, tag2, tag3):
     else:  # t1 t2 is in training
         if tag1 + " " + tag2 + " " + tag3 in tag_trigrams:  # prob is 0 if trigram is not found
             prob_3g = tag_trigrams[tag1 + " " + tag2 + " " + tag3] / tag_bigrams[tag1 + " " + tag2]
-
     return l3 * prob_3g + l2 * prob_2g + l1 * prob_1g
 
 
@@ -180,36 +191,45 @@ def report():
             for tag3 in sorted_tag_unigrams_keys:
                 p_hat = interpolate(tag1, tag2, tag3)
                 smoothed_p_hat = float('{:.10f}'.format(p_hat))
-                possibe_transitions[tag1 + "_" + tag2 + " " + tag2 + "_" + tag3] = smoothed_p_hat
+                possible_transitions[tag1 + "_" + tag2 + " " + tag2 + "_" + tag3] = smoothed_p_hat
+                t1_t2 = tag1 + "_" + tag2
+                t2_t3 = tag2 + "_" + tag3
+                tag_set.add(t1_t2)
+                tag_set.add(t2_t3)
 
     # generate emission probabilities
     for tag1 in sorted_tag_unigrams_keys:
         for tag2 in sorted_tag_unigrams_keys:
             for word in tag_unigrams[tag2][1]:
                 ngram = tag1 + "_" + tag2 + " " + word
+                # print("analyzing " + ngram)
                 if tag2 + " " + word in emission_prob:
                     numerator = emission_prob[tag2 + " " + word][0]
                     denominator = tag_unigrams[tag2][0]
                     prob = numerator / denominator
-                    smoothed_prob = prob * (1 - unk_prob[tag2])
+                    if tag2 in unk_prob:
+                        prob = prob * (1 - unk_prob[tag2])
                 else:
-                    smoothed_prob = unk_prob[tag2]
-                possible_emissions[ngram] = float('{:.10f}'.format(smoothed_prob))
+                    if tag2 in unk_prob:
+                        prob = unk_prob[tag2]
+                    else:
+                        prob = 0
+                possible_emissions[ngram] = float('{:.10f}'.format(prob))
 
     # report to console
     # print("state_num=" + str(len(tag_unigrams) ** 2))
     # print("sym_num=" + str(len(word_unigrams)))
     # print("init_line_num=1")
-    # print("trans_line_num=" + str(len(possibe_transitions)))
+    # print("trans_line_num=" + str(len(possible_transitions)))
     # print("emiss_line_num=" + str(len(possible_emissions)))
     # print()
     # print("\\init")
     # print("BOS_BOS 1")
     # print()
     # print("\\transition")
-    # sorted_transitions = sorted(possibe_transitions.keys())
+    # sorted_transitions = sorted(possible_transitions.keys())
     # for item in sorted_transitions:
-    #     print(item + " " + str(possibe_transitions[item]))
+    #     print(item + " " + str(possible_transitions[item]))
     # print()
     # print("\\emission")
     # print()
@@ -221,16 +241,16 @@ def report():
         output_file.write("state_num=" + str(len(tag_unigrams) ** 2) + "\n")
         output_file.write("sym_num=" + str(len(word_unigrams)) + "\n")
         output_file.write("init_line_num=1" + "\n")
-        output_file.write("trans_line_num=" + str(len(possibe_transitions)) + "\n")
+        output_file.write("trans_line_num=" + str(len(possible_transitions)) + "\n")
         output_file.write("emiss_line_num=" + str(len(possible_emissions)) + "\n")
         output_file.write("\n")
         output_file.write("\\init" + "\n")
         output_file.write("BOS_BOS 1" + "\n")
         output_file.write("\n")
         output_file.write("\\transition" + "\n")
-        sorted_transitions = sorted(possibe_transitions.keys())
+        sorted_transitions = sorted(possible_transitions.keys())
         for item in sorted_transitions:
-            output_file.write(item + " " + str(possibe_transitions[item]) + "\n")
+            output_file.write(item + " " + str(possible_transitions[item]) + "\n")
         output_file.write("\n")
         output_file.write("\\emission" + "\n")
         sorted_emissions = sorted(possible_emissions.keys())
