@@ -1,0 +1,67 @@
+Progress Report: An English Part-of-Speech Tagger using the Hidden Markov Model
+
+The Hidden Markov Model (HMM)is a special case of a weighted finite-state automaton, where each arc is associated with
+a probability, and where some states are hidden (in our case, the part-of-speech tag of a word). The HMM is a model for
+a sequence labeling algorithm, where the observation is a sequence of words (e.g. a sentence), and the task is to
+label the part-of-speech (pos) tag for each token in that sequence.
+
+We implement two HMM algorithms:
+- the Forward algorithm: given an observation sequence, estimate the likelihood of a state (a pos tag)
+- the Viterbi algorithm: given an observation sequence, estimate its best state sequence (a sequence of tags for that sentence)
+
+Extracting Transition and Emission Probabilities
+To compute the Viterbi and Forward algorithms, we need to extract two types of probabilities:
+- transition probabilities (A probabilities, state_i to state_j)
+- emission probabilities (B probabilities, state_i to observation_t)
+
+We use a segment of the Wall Street Journal corpus (first 1921 lines), enhanced with a POS tag for each token.
+We have a bigram and a trigram implementation of extracting both the A and B probabilities.
+
+For the A probabilities, we need to infer the probability from a POS tag to a POS tag. We calculate the
+probability of one POS tag given a history of a POS tag:
+P(tag_i | tag_i-1).
+
+In computing this conditional probability, we use the Markov assumption. We count the number of occurrences
+of tag_i-1, tag_i in the corpus and divide this number by the count of tag_i-1:
+P(tag_i | tag_i-1) = count(tag_i-1, tag_i) / count(tag_i-1)
+
+The same idea applies to the trigram implementation. However, in the trigram implementation, the probability of
+a POS tag given a history of two POS tags tag_i-2, tag_i-1 is being inferred:
+P(tag_i | tag_i-2, tag_i-1).
+
+In computing this conditional probability, we use the Markov assumption:
+P(tag_i | tag_i-2, tag_i-1) = count(tag_i-2, tag_i-1, tag_i) / count(tag_i-2, tag_i-1)
+
+The same idea applies to the B probabilities extraction, where we also have a bigram and a trigram implementation.
+However, in the bigram B probabilities, we are concerned with the probability of a word w given a history of a
+POS tag. In the trigram B probabilities, we are concerned with the probability of a word w given a history of two
+POS tags tag_i and tag_i-1.
+
+For each probability we also compute its corresponding log probability.
+
+
+Smoothing
+In both probability sets, we are accounting for unseen words and unseen pos tags.
+
+For the A probabilities, we are using linear interpolation as our smoothing technique. We combine different order
+n-grams (trigram, bigram, unigram) each weighted by a lambda value.
+
+For the B probabilities, we replace all words that occur < 1 with <unk> and calculate its probability given a pos tag.
+We compile the list of <unk> probabilities in a separate file use these probabilities to smooth the probabilities of
+seen words with the following formula:
+P_smooth(w | tag) = P(w | tag) * (1 − P(<unk> | tag))
+
+
+Running the Scripts
+The scripts are able to run to completion on both the sample and the training corpus.
+Run the following command to extract bigram emission and transition probabilities:
+cat training_data | create_2gram_hmm.sh output_2gram_hmm
+
+Run the following command to extract trigram emission and transition probabilities:
+cat training_data | create_3gram_hmm.sh output_3gram_hmm l1 l2 l3 unk_prob_file
+
+- Sample training data provided in this repository is toy_input under examples/toy.
+- The smoothing technique used is linear interpolation, where l1, l2, l3 are lambda values.
+- Probabilities in unk_prob_file are used to account for unknown words. Sample unk_prob_file provided in this
+repository is toy_unk under examples/toy.
+

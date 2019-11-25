@@ -14,12 +14,12 @@ import sys
 import math
 
 # command line args
-# input_file = sys.stdin
-# output_file_name = sys.argv[1]
+input_file = sys.stdin
+output_file_name = sys.argv[1]
 
 # home development
-input_file_name = "examples/wsj_sec0.word_pos"
-output_file_name = "wsj_hmm_2g"
+# input_file_name = "examples/wsj_sec0.word_pos"
+# output_file_name = "wsj_hmm_2g"
 
 # global variables
 transition_prob = {}  # state to state
@@ -82,25 +82,25 @@ def take_inventory(split_line):
 
 # DRIVER
 # input from stdin
-# for line in input_file:
-#     split_line = ["<s>/BOS"] + line.strip().split(" ") + ["</s>/EOS"]
-#     take_inventory(split_line)
+for line in input_file:
+    split_line = ["<s>/BOS"] + line.strip().split(" ") + ["</s>/EOS"]
+    take_inventory(split_line)
 
-# home development
-with open(input_file_name, "r") as input_file:
-    for line in input_file:
-        split_line = ["<s>/BOS"] + line.strip("\n").split(" ") + ["</s>/EOS"]
-        # print(split_line)
-        take_inventory(split_line)
+# running on an ide
+# with open(input_file_name, "r") as input_file:
+#     for line in input_file:
+#         split_line = ["<s>/BOS"] + line.strip("\n").split(" ") + ["</s>/EOS"]
+#         # print(split_line)
+#         take_inventory(split_line)
 
 # report
 with open(output_file_name, "w") as output_file:
-    print("state_num=" + str(len(tag_unigrams)))
-    print("sym_num=" + str(len(word_unigrams)))
-    print("init_line_num=1")
-    print("trans_line_num=" + str(len(transition_prob)))
-    print("emiss_line_num=" + str(len(emission_prob)) + "\n")
-    print("\init")
+    # print("state_num=" + str(len(tag_unigrams)))
+    # print("sym_num=" + str(len(word_unigrams)))
+    # print("init_line_num=1")
+    # print("trans_line_num=" + str(len(transition_prob)))
+    # print("emiss_line_num=" + str(len(emission_prob)) + "\n")
+    # print("\init")
 
     output_file.write("state_num=" + str(len(tag_unigrams)) + "\n")
     output_file.write("sym_num=" + str(len(word_unigrams)) + "\n")
@@ -115,12 +115,13 @@ with open(output_file_name, "w") as output_file:
         if "BOS" in key:
             init_count += transition_prob[key][0]
     init_prob = init_count / tag_unigrams["BOS"]
+    log_init_prob = math.log10(init_prob)
 
-    print("BOS " + str(float('{:.10f}'.format(init_prob))) + "\n")
-    output_file.write("BOS " + str(float('{:.10f}'.format(init_prob))) + "\n\n")
+    # print("BOS " + str('{:.10f}'.format(init_prob)) + " " + str('{:.10f}'.format(log_init_prob)) + "\n")
+    output_file.write("BOS " + str('{:.10f}'.format(init_prob)) + " " + str('{:.10f}'.format(log_init_prob)) + "\n\n")
 
     for prob_type in ['transition', 'emission']:
-        print("\\" + prob_type)
+        # print("\\" + prob_type)
         output_file.write("\\" + prob_type + "\n")
         inventory = transition_prob
         if prob_type == "emission":
@@ -132,7 +133,9 @@ with open(output_file_name, "w") as output_file:
             # get prob
             numerator = inventory[key][0]
             denominator = tag_unigrams[inventory[key][1]]
-            print(key + " " + str(float('{:.10f}'.format(numerator/denominator))))
-            output_file.write(key + " " + str(float('{:.10f}'.format(numerator / denominator))) + "\n")
-        print("\n")
+            p = numerator / denominator
+            log_p = math.log10(p)
+            # print(key + " " + str('{:.10f}'.format(p)) + " " + str("{:.10f}".format(math.log10(p))))
+            output_file.write(key + " " + str('{:.10f}'.format(p)) + " " + str("{:.10f}".format(math.log10(p))) + "\n")
+        # print("\n")
         output_file.write("\n")

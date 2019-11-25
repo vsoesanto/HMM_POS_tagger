@@ -15,23 +15,23 @@ import sys
 import math
 
 # command line args
-# input_file = sys.stdin
-# output_file_name = sys.argv[1]
-# l1 = float(sys.argv[2])
-# l2 = float(sys.argv[3])
-# l3 = float(sys.argv[4])
-# unk_prob_file_name = sys.argv[5]
+input_file = sys.stdin
+output_file_name = sys.argv[1]
+l1 = float(sys.argv[2])
+l2 = float(sys.argv[3])
+l3 = float(sys.argv[4])
+unk_prob_file_name = sys.argv[5]
 
 # for home development
-input_file_name = "examples/wsj_sec0.word_pos"
-# input_file_name = "examples/toy/toy_input"
-output_file_name = "wsj_hmm_3g"
-# output_file_name = "toy_hmm_3g"
-l1 = 0.2
-l2 = 0.3
-l3 = 0.5
-unk_prob_file_name = "examples/unk_prob_sec22"
-# unk_prob_file_name = "examples/toy/toy_unk"
+# input_file_name = "examples/wsj_sec0.word_pos"
+# # input_file_name = "examples/toy/toy_input"
+# output_file_name = "wsj_hmm_3g"
+# # output_file_name = "toy_hmm_3g"
+# l1 = 0.2
+# l2 = 0.3
+# l3 = 0.5
+# unk_prob_file_name = "examples/unk_prob_sec22"
+# # unk_prob_file_name = "examples/toy/toy_unk"
 
 # global variables
 emission_prob = {}
@@ -50,44 +50,44 @@ possible_transitions = {}
 
 
 def take_inventory():
-    # running with command line
-    # for line in input_file:
-    #     split_line = ["<s>/BOS"] + line.strip().split(" ") + ["</s>/EOS"]
-    #     for i in range(len(split_line)):
-    #         item = split_line[i]
-    #         # by default, item is split by "/" which will capture the "/" in the word "</s>"
-    #         if "</s>" in item:
-    #             word = "</s>"
-    #             tag = "EOS"
-    #         else:
-    #             pair = split_line[i].rsplit("/", maxsplit=1)
-    #             word = pair[0]
-    #             tag = pair[1]
-    #         split_line[i] = (word, tag)  # modify split_line by replacing string with tuple
+    # input from sys
+    for line in input_file:
+        split_line = ["<s>/BOS"] + line.strip().split(" ") + ["</s>/EOS"]
+        for i in range(len(split_line)):
+            item = split_line[i]
+            # by default, item is split by "/" which will capture the "/" in the word "</s>"
+            if "</s>" in item:
+                word = "</s>"
+                tag = "EOS"
+            else:
+                pair = split_line[i].rsplit("/", maxsplit=1)
+                word = pair[0]
+                tag = pair[1]
+            split_line[i] = (word, tag)  # modify split_line by replacing string with tuple
+
+        for i in range(len(split_line)):
+            count_transitions(split_line, i)
+            count_emissions(split_line, i)
+
+    # running on an ide
+    # with open(input_file_name, "r") as input_file:
+    #     for line in input_file:
+    #         split_line = ["<s>/BOS"] + line.strip().split(" ") + ["</s>/EOS"]
+    #         for i in range(len(split_line)):
+    #             item = split_line[i]
+    #             # by default, item is split by "/" which will capture the "/" in the word "</s>"
+    #             if "</s>" in item:
+    #                 word = "</s>"
+    #                 tag = "EOS"
+    #             else:
+    #                 pair = split_line[i].rsplit(r"/", maxsplit=1)
+    #                 word = pair[0]
+    #                 tag = pair[1]
+    #             split_line[i] = (word, tag)  # modify split_line by replacing string with tuple
     #
-    #     for i in range(len(split_line)):
-    #         count_transitions(split_line, i)
-    #         count_emissions(split_line, i)
-
-    # for home developmeent
-    with open(input_file_name, "r") as input_file:
-        for line in input_file:
-            split_line = ["<s>/BOS"] + line.strip().split(" ") + ["</s>/EOS"]
-            for i in range(len(split_line)):
-                item = split_line[i]
-                # by default, item is split by "/" which will capture the "/" in the word "</s>"
-                if "</s>" in item:
-                    word = "</s>"
-                    tag = "EOS"
-                else:
-                    pair = split_line[i].rsplit(r"/", maxsplit=1)
-                    word = pair[0]
-                    tag = pair[1]
-                split_line[i] = (word, tag)  # modify split_line by replacing string with tuple
-
-            for i in range(len(split_line)):
-                count_transitions(split_line, i)
-                count_emissions(split_line, i)
+    #         for i in range(len(split_line)):
+    #             count_transitions(split_line, i)
+    #             count_emissions(split_line, i)
 
 
 def count_transitions(split_line, i):
@@ -189,9 +189,11 @@ def report():
     for tag1 in sorted_tag_unigrams_keys:
         for tag2 in sorted_tag_unigrams_keys:
             for tag3 in sorted_tag_unigrams_keys:
+                # print("analyzing " + tag1 + " " + tag2 + " " + tag3)
                 p_hat = interpolate(tag1, tag2, tag3)
                 smoothed_p_hat = float('{:.10f}'.format(p_hat))
-                possible_transitions[tag1 + "_" + tag2 + " " + tag2 + "_" + tag3] = smoothed_p_hat
+                log_p_hat = float('{:.10f}'.format(math.log10(smoothed_p_hat)))
+                possible_transitions[tag1 + "_" + tag2 + " " + tag2 + "_" + tag3] = [smoothed_p_hat, log_p_hat]
                 t1_t2 = tag1 + "_" + tag2
                 t2_t3 = tag2 + "_" + tag3
                 tag_set.add(t1_t2)
@@ -214,7 +216,11 @@ def report():
                         prob = unk_prob[tag2]
                     else:
                         prob = 0
-                possible_emissions[ngram] = float('{:.10f}'.format(prob))
+                log_prob = 0.0000000000
+                if prob != 0:
+                    log_prob = float('{:.10f}'.format(math.log10(prob)))
+                possible_emissions[ngram] = [float('{:.10f}'.format(prob)), log_prob]
+                # print()
 
     # report to console
     # print("state_num=" + str(len(tag_unigrams) ** 2))
@@ -237,25 +243,26 @@ def report():
     # for item in sorted_emissions:
     #     print(item + " " + str(possible_emissions[item]))
 
+    # report to output file
     with open(output_file_name, "w") as output_file:
-        output_file.write("state_num=" + str(len(tag_unigrams) ** 2) + "\n")
+        output_file.write("state_num=" + str(len(tag_set)) + "\n")
         output_file.write("sym_num=" + str(len(word_unigrams)) + "\n")
         output_file.write("init_line_num=1" + "\n")
         output_file.write("trans_line_num=" + str(len(possible_transitions)) + "\n")
         output_file.write("emiss_line_num=" + str(len(possible_emissions)) + "\n")
         output_file.write("\n")
         output_file.write("\\init" + "\n")
-        output_file.write("BOS_BOS 1" + "\n")
+        output_file.write("BOS_BOS 1.0000000000 0.0000000000" + "\n")
         output_file.write("\n")
         output_file.write("\\transition" + "\n")
         sorted_transitions = sorted(possible_transitions.keys())
         for item in sorted_transitions:
-            output_file.write(item + " " + str(possible_transitions[item]) + "\n")
+            output_file.write(item + " " + str(possible_transitions[item][0]) + " " + str(possible_transitions[item][1]) + "\n")
         output_file.write("\n")
         output_file.write("\\emission" + "\n")
         sorted_emissions = sorted(possible_emissions.keys())
         for item in sorted_emissions:
-            output_file.write(item + " " + str(possible_emissions[item])+ "\n")
+            output_file.write(item + " " + str(possible_emissions[item][0]) + " " + str(possible_emissions[item][1])+ "\n")
 
 
 # DRIVER
