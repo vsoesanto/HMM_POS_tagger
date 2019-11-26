@@ -1,13 +1,24 @@
 Progress Report: An English Part-of-Speech Tagger using the Hidden Markov Model
 
+What works and doesn't work
+--------------------------
+We have completed the "Extracting Transition and Emission Probabilities" part, described in the "Techniques Featured" section below.
+Instructions for running the code are in the "Running the Scripts" section below.
+What remains to be done is the code that uses the probabilities we've generated with Viterbi to outputs the part-of-speech tags given 
+some sentences.
+
+Techniques Featured 
+--------------------------
 The Hidden Markov Model (HMM)is a special case of a weighted finite-state automaton, where each arc is associated with
 a probability, and where some states are hidden (in our case, the part-of-speech tag of a word). The HMM is a model for
 a sequence labeling algorithm, where the observation is a sequence of words (e.g. a sentence), and the task is to
 label the part-of-speech (pos) tag for each token in that sequence.
 
-We implement two HMM algorithms:
-- the Forward algorithm: given an observation sequence, estimate the likelihood of a state (a pos tag)
-- the Viterbi algorithm: given an observation sequence, estimate its best state sequence (a sequence of tags for that sentence)
+We will implement the HMM algorithm:
+
+- the Viterbi algorithm: Our main implementation of HMM will use Viterbi. Given an observation sequence, estimate its best state sequence (a sequence of tags for that sentence)
+- the Forward algorithm: Since only one of Viterbi and Forward is required, only if time permits will we implement 
+the Forward algorithm, in which given an observation sequence, we estimate the likelihood of a state (a pos tag)
 
 Extracting Transition and Emission Probabilities
 To compute the Viterbi and Forward algorithms, we need to extract two types of probabilities:
