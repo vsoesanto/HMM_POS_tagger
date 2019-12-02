@@ -1,6 +1,18 @@
 """
 Viterbi Algorithm
 CSE 415 project, 11/29/2019
+
+Usage:
+python viterbi.py hmm_filename inputfilename outputfilename
+
+  * the HMM file must be in format created by the other script.
+  * input file is a text file with one sentence per line.
+    If omitted, gets input at command line by prompting user
+  * output file is where output indicating the best parse found for
+    the input sentence(s) is saved.
+
+Example command line arguments:
+3g_hmm the_store.txt output.txt
 """
 
 
@@ -57,7 +69,11 @@ def read_hmm():
                         sys.stderr.write("warning: the prob is not in [0,1] range:{}".format(line_full))
                     state1 = line[0]
                     state2 = line[1]
-                    prob = float(line[3])
+                    if len(line) > 3:
+                        prob = float(line[3])
+                    else:
+                        prob = math.log10(float(line[2]))
+                        # prob = float(line[2]) # NOTE: in this case, not using log probabilities
                     if state1 not in states_key.keys():
                         states_key[state1] = states_key_counter
                         states_index[states_key_counter] = state1
@@ -93,6 +109,11 @@ def read_hmm():
 
                 else:
                     continue
+            try:
+                k = emissions_key["<unk>"]
+                print(np.shape(np.argwhere(emissions_array[k, :] > -np.inf)))
+            except Exception as e:
+                print("Warning: No unknown found when loading HMM: {}".format(e))
         return transitions_array, emissions_array
 
     # open_hmm()
@@ -145,8 +166,10 @@ def viterbi(sentence, pi, states_key, states_index, emissions_key, transitions, 
             if current_word in emissions_key.keys():
                 k = emissions_key[current_word]
             else:
-                k = emissions_key["<unk>"]
-
+                try:
+                    k = emissions_key["<unk>"] # TODO: BUG - WHAT IF NO UNK IN FILE?
+                except Exception as e:
+                    print("Warning: No unknown probability found with key = {}".format(e))
             for j in range(trans):
                 if emissions[k,j] == -np.inf:
                     continue
@@ -171,7 +194,8 @@ def viterbi(sentence, pi, states_key, states_index, emissions_key, transitions, 
 
         for t in range(s-1, 0, -1):
             i = backpointers[j,t]
-            out.append(states_index[i])
+            if (i > -1):
+                out.append(states_index[i])
             j = i
         out.reverse()
         return " ".join(out), best_final_state_prob
@@ -182,9 +206,32 @@ def viterbi(sentence, pi, states_key, states_index, emissions_key, transitions, 
 
 pi, states_key, states_index, emissions_key, transitions, emissions = read_hmm()
 
+def get_output_string(line, v_out):
+    '''
+    Creates a string for output of a line of input followed by its parse
+    and its log probabability
+    :param line: The line of input. Generally should be a sentence.
+    :param v_out: A tuple (parse, lg_prob)
+      The parse is a string like: BOS_BOS BOS_DT DT_NN NN_VBD VBD_JJ JJ_NN
+      The lg_prob is a negative number like: -17.547289547289.
+    :return:
+      Example: the store sold expensive goods => BOS_BOS BOS_DT DT_NN NN_VBD VBD_JJ JJ_NNS -17.142151925332413
+    '''
+    # return line[:-1] + " => " + v_out[0] + " " + str(v_out[1]) + "\n"
+    return line.strip() + " => " + v_out[0] + " " + str(v_out[1]) + "\n"
+
 with open(sys.argv[3], "w") as out:
     with open(sys.argv[2], "r") as file:
         for line in file:
-            # print(line)
             v_out = viterbi(line, pi, states_key, states_index, emissions_key, transitions, emissions)
-            out.write(line[:-1] + " => " + v_out[0] + " " + str(v_out[1]) + "\n")
+            out.write(get_output_string(line, v_out))
+            print(get_output_string(line, v_out))   # also print to screen
+
+do_exit = False
+while not do_exit:
+    response = input("Enter a sentence to parse. (to quit, enter 'exit')")
+    if response == "exit":
+        do_exit = True
+    else:
+        v_out = viterbi(response, pi, states_key, states_index, emissions_key, transitions, emissions)
+        print(get_output_string(response, v_out))
