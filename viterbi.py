@@ -20,6 +20,13 @@ import sys
 import math
 import numpy as np
 
+input_text_file = ''
+output_text_file = 'output.txt'
+if len(sys.argv) >= 4:
+    output_text_file = sys.argv[3] # assume third argument is output file name
+
+if len(sys.argv) > 3:
+    input_text_file = sys.argv[2]
 def read_hmm():
 
     states_key = {}
@@ -204,8 +211,6 @@ def viterbi(sentence, pi, states_key, states_index, emissions_key, transitions, 
     return output
 
 
-pi, states_key, states_index, emissions_key, transitions, emissions = read_hmm()
-
 def get_output_string(line, v_out):
     '''
     Creates a string for output of a line of input followed by its parse
@@ -220,12 +225,19 @@ def get_output_string(line, v_out):
     # return line[:-1] + " => " + v_out[0] + " " + str(v_out[1]) + "\n"
     return line.strip() + " => " + v_out[0] + " " + str(v_out[1]) + "\n"
 
-with open(sys.argv[3], "w") as out:
-    with open(sys.argv[2], "r") as file:
-        for line in file:
-            v_out = viterbi(line, pi, states_key, states_index, emissions_key, transitions, emissions)
-            out.write(get_output_string(line, v_out))
-            print(get_output_string(line, v_out))   # also print to screen
+'''
+Load the HMM
+'''
+pi, states_key, states_index, emissions_key, transitions, emissions = read_hmm()
+
+
+with open(output_text_file, "w") as out: # always logging our output
+    if not input_text_file == '':
+        with open(input_text_file, "r") as file:
+            for line in file:
+                v_out = viterbi(line, pi, states_key, states_index, emissions_key, transitions, emissions)
+                out.write(get_output_string(line, v_out))
+                print(get_output_string(line, v_out))   # also print to screen
 
 do_exit = False
 while not do_exit:
