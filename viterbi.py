@@ -19,6 +19,48 @@ Example command line arguments:
 import sys
 import math
 import numpy as np
+import svgwrite
+
+SPACING = 150
+RADIUS = 44
+
+def init_drawing(sentence, len=10):
+    '''
+
+    :param sentence: name based on the sentence or line being diagrammed
+    :param sentence: length of sentence or line, to determine width
+    :return: the drawing object named for the line being diagrammed
+    '''
+    name = sentence + '.svg'
+    dwg = svgwrite.Drawing(name, profile='tiny', size=(len*SPACING,len*SPACING))
+    return dwg
+
+def draw_word(dwg, word, coords):
+    dwg.add(dwg.text(word,
+                     insert=coords, font_size="15px", fill='blue'))
+
+
+def draw_state(dwg, log_prob=-5.12, state_name = "BOS_NNP", center=(100,100)):
+    '''
+
+    :param dwg:
+    :param log_prob:
+    :param state_name:
+    :param center:
+    :return:
+    '''
+    radius = RADIUS
+    center_offset = 30
+    right_side = (center[0]+ radius, center[1])
+    dwg.add(dwg.circle(center, radius, stroke='blue', stroke_width=3, fill='none'))
+    dwg.add(dwg.text(state_name,
+                     insert=(center[0]-center_offset, center[1]+center_offset/2), font_size="15px", fill='red'))
+    dwg.add(dwg.text("p={:.2f}".format(log_prob),
+                     insert=(center[0]-center_offset, center[1]-center_offset/2), font_size="15px", fill='black'))
+
+    dwg.save()
+    return (state_name, right_side)
+
 
 input_text_file = ''
 output_text_file = 'output.txt'
@@ -118,7 +160,7 @@ def read_hmm():
                     continue
             try:
                 k = emissions_key["<unk>"]
-                print(np.shape(np.argwhere(emissions_array[k, :] > -np.inf)))
+                # print(np.shape(np.argwhere(emissions_array[k, :] > -np.inf)))
             except Exception as e:
                 print("Warning: No unknown found when loading HMM: {}".format(e))
         return transitions_array, emissions_array
@@ -141,11 +183,15 @@ def read_hmm():
 def print_trellis(trellis):
     return
 
-def viterbi(sentence, pi, states_key, states_index, emissions_key, transitions, emissions):
+def viterbi(sentence, pi, states_key, states_index, emissions_key, transitions, emissions, line_count=0):
 
-    def run_viterbi(sentence):
+    def run_viterbi(sentence, line_num=0):
+        # create diagram for this sentence
+        dwg = init_drawing("line"+str(line_num))
+
         # Create trellis and backpointer matrices
         sentence = sentence.split()
+
         word_index = {}
         index_word = {}
         index = 0
@@ -156,17 +202,28 @@ def viterbi(sentence, pi, states_key, states_index, emissions_key, transitions, 
         s = len(sentence) + 1
         trans = len(transitions)
         trellis = np.full((trans,s), -np.inf)
-        backpointers = np.full((trans,s), -1)
+        backpointers = np.full((trans,s), -1) #(fill backpointer array with dummy pointer -1)
 
-        # Initialize array (fill backpointer array with dummy pointer -1)
+        # Initialize array
+        trellis_diagram_layers = []
         for n in range(trans):
             if n in pi.keys():
                 trellis[n,0] = pi[n]
+                trellis_layer_line0 = {}
+                draw_word(dwg, 'START', (SPACING-(RADIUS), SPACING-100))
+                (st_name, rt_side) = draw_state(dwg, 1, states_index[n],
+                                                (SPACING * (0 + 1), SPACING * 1))
+                trellis_layer_line0[states_index[n]] = rt_side # save right side coords
+        trellis_diagram_layers.append(trellis_layer_line0)
+
 
         # Recursive procedure to fill array
         for t in range(s-1):
             # build string to print for this word's trellis layer
             trellis_layer_string = ''
+            # hash for drawing lines in diagram
+            trellis_layer_lines = {}
+            j_found_count = 0  # for use in spacing out trellis diagram
 
             # Find all cells with values for i-th element - previous cells' probabilities
             prev_probs = trellis[:,t]
@@ -174,13 +231,14 @@ def viterbi(sentence, pi, states_key, states_index, emissions_key, transitions, 
 
             # Get the index of the current word, or <unk> if not in emissions table
             current_word = index_word[t]
+            draw_word(dwg, current_word, (SPACING*(t+2)-(.8*RADIUS), SPACING - 100))
             if current_word in emissions_key.keys():
                 k = emissions_key[current_word]
             else:
                 try:
                     k = emissions_key["<unk>"] # TODO: BUG - WHAT IF NO UNK IN FILE?
                 except Exception as e:
-                    print("Warning: No unknown probability found with key = {}".format(e))
+                    print("Warning: Word = {}: No unknown probability found with key = {}".format(current_word, e))
             for j in range(trans):
                 if emissions[k,j] == -np.inf:
                     continue
@@ -197,16 +255,32 @@ def viterbi(sentence, pi, states_key, states_index, emissions_key, transitions, 
                             max_pointer = i  # comes from i
 
                 trellis[j,t+1] = max_prob
+
+                # Printing and drawing
                 # we can print at time t+1, word current_word, state j coming from max_pointer if max_prob!=-inf
                 if not max_prob == -np.inf:
+                    j_found_count +=1
                     source = states_index[max_pointer]
                     state = states_index[j]  # we've just added this state
                     trellis_layer_string += "[{} (p={:.2f}, from {})]".format(
                         state, max_trans_emit_p, source)
+
+                    (st_name, rt_side) = draw_state(dwg, max_trans_emit_p, state,
+                               (SPACING*(t+2), SPACING*j_found_count))
+                    # draw lines connecting to previous layer
+                    dest_pt = trellis_diagram_layers[t][source]
+                    left_side = (rt_side[0]-(2*RADIUS), rt_side[1])
+                    dwg.add(dwg.line(left_side, dest_pt, stroke=svgwrite.rgb(10, 10, 16, '%')))
+                    dwg.save()
+                    trellis_layer_lines[st_name] = rt_side
+
+                # update backpointers
                 backpointers[j,t+1] = max_pointer
 
-            # print the trellis layer
-            print(current_word + ": " + trellis_layer_string)
+            # done with for j loop,
+            print(current_word + ": " + trellis_layer_string)  #print the trellis layer
+            # add new states to row t of trellis diagram layers
+            trellis_diagram_layers.append(trellis_layer_lines)
 
         # Backtrace best path
         out = []
@@ -224,7 +298,7 @@ def viterbi(sentence, pi, states_key, states_index, emissions_key, transitions, 
         out.reverse()
         return " ".join(out), best_final_state_prob
 
-    output = run_viterbi(sentence)
+    output = run_viterbi(sentence, line_num=line_count)
     return output
 
 
@@ -251,15 +325,17 @@ pi, states_key, states_index, emissions_key, transitions, emissions = read_hmm()
 with open(output_text_file, "w") as out: # always logging our output
     if not input_text_file == '':
         with open(input_text_file, "r") as file:
+            line_count = 0
             for line in file:
-                v_out = viterbi(line, pi, states_key, states_index, emissions_key, transitions, emissions)
+                line_count += 1
+                v_out = viterbi(line, pi, states_key, states_index, emissions_key, transitions, emissions, line_count=line_count)
                 out.write(get_output_string(line, v_out))
                 print(get_output_string(line, v_out))   # also print to screen
 
 do_exit = False
 while not do_exit:
-    response = input("Enter a sentence to parse. (to quit, enter 'exit')")
-    if response == "exit":
+    response = input("Enter a sentence to parse. (to quit, enter 'exit' or 'q')")
+    if response == "exit" or response == 'q':
         do_exit = True
     else:
         v_out = viterbi(response, pi, states_key, states_index, emissions_key, transitions, emissions)
