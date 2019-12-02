@@ -138,7 +138,8 @@ def read_hmm():
 
     return init_probs, states_key, states_index, emissions_key, transitions, emissions
 
-
+def print_trellis(trellis):
+    return
 
 def viterbi(sentence, pi, states_key, states_index, emissions_key, transitions, emissions):
 
@@ -164,6 +165,9 @@ def viterbi(sentence, pi, states_key, states_index, emissions_key, transitions, 
 
         # Recursive procedure to fill array
         for t in range(s-1):
+            # build string to print for this word's trellis layer
+            trellis_layer_string = ''
+
             # Find all cells with values for i-th element - previous cells' probabilities
             prev_probs = trellis[:,t]
             prev_probs = np.where(prev_probs != -np.inf)[0]
@@ -181,15 +185,28 @@ def viterbi(sentence, pi, states_key, states_index, emissions_key, transitions, 
                 if emissions[k,j] == -np.inf:
                     continue
                 max_prob = -np.inf
+                max_trans_emit_p = -np.inf
                 max_pointer = -1
                 for i in prev_probs:
                     if transitions[i,j] != -np.inf:
-                        temp = trellis[i,t] + transitions[i,j] + emissions[k,j]
+                        trans_emit_p = transitions[i,j] + emissions[k,j]
+                        temp = trellis[i,t] + trans_emit_p #+ transitions[i,j] + emissions[k,j]
                         if temp > max_prob:
                             max_prob = temp
-                            max_pointer = i
+                            max_trans_emit_p = trans_emit_p
+                            max_pointer = i  # comes from i
+
                 trellis[j,t+1] = max_prob
+                # we can print at time t+1, word current_word, state j coming from max_pointer if max_prob!=-inf
+                if not max_prob == -np.inf:
+                    source = states_index[max_pointer]
+                    state = states_index[j]  # we've just added this state
+                    trellis_layer_string += "[{} (p={:.2f}, from {})]".format(
+                        state, max_trans_emit_p, source)
                 backpointers[j,t+1] = max_pointer
+
+            # print the trellis layer
+            print(current_word + ": " + trellis_layer_string)
 
         # Backtrace best path
         out = []
